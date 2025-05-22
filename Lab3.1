@@ -1,0 +1,82 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+class ART1:
+    def __init__(self, input_size, vigilance=0.7, learning_rate=1.0):
+        self.input_size = input_size
+        self.vigilance = vigilance
+        self.learning_rate = learning_rate
+        self.B = []
+        self.T = []
+        self.num_categories = 0
+
+    def add_category(self, input_pattern):
+        new_B = np.ones(self.input_size) / (1 + self.input_size)
+        new_T = input_pattern.copy()
+        self.B.append(new_B)
+        self.T.append(new_T)
+        self.num_categories += 1
+        return self.num_categories - 1
+
+    def train(self, input_pattern):
+        input_pattern = np.array(input_pattern, dtype=float)
+        input_norm = input_pattern.sum()
+
+        if input_norm == 0:
+            return -1, 0.0
+
+        if self.num_categories == 0:
+            return self.add_category(input_pattern), 1.0
+
+        S = np.array([np.dot(self.B[j], input_pattern) for j in range(self.num_categories)])
+
+        for winner in np.argsort(S)[::-1]:
+            match = np.minimum(self.T[winner], input_pattern)
+            match_norm = match.sum()
+            resonance = match_norm / input_norm
+
+            if resonance >= self.vigilance:
+                self.T[winner] = match
+                self.B[winner] = self.learning_rate * match / (0.5 + self.learning_rate * match_norm)
+                return winner, resonance
+
+        new_neuron = self.add_category(input_pattern)
+        return new_neuron, 1.0
+
+def print_pattern(pattern, rows=3, cols=4):
+    fig, ax = plt.subplots()
+    ax.imshow(np.array(pattern).reshape(rows, cols), cmap='binary', vmin=0, vmax=1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    plt.show()
+
+def main():
+    # Точные паттерны, которые ты прислал
+    samples = [
+        [0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1],  # Паттерн 1
+        [1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0],  # Паттерн 2
+        [0, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0],  # Паттерн 3
+        [1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],  # Паттерн 4
+        [1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1]   # Паттерн 5
+    ]
+
+    art = ART1(input_size=12, vigilance=0.8)
+
+    for i, sample in enumerate(samples):
+        print(f"\n=== Шаг {i+1} ===")
+        print("Входной образец:")
+        print_pattern(sample, rows=2, cols=6)  # 2 строки по 6 столбцов
+
+        winner, resonance = art.train(sample)
+
+        print(f"Нейрон-победитель: {winner}")
+        print(f"Мера сходства: {resonance:.2f}")
+        print(f"Текущее количество нейронов: {art.num_categories}")
+
+        print("\nЗапомненные образы:")
+        for j in range(art.num_categories):
+            print(f"Нейрон {j}:")
+            print_pattern((art.T[j] > 0.5).astype(int), rows=2, cols=6)
+
+if __name__ == "__main__":
+    main()
